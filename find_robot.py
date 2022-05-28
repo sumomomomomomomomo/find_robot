@@ -1,9 +1,11 @@
-import numpy as np
-import cv2
-import time
 import math
-import sys
 import os
+import sys
+import time
+
+import cv2
+import numpy as np
+
 
 def pre_img(img):
     """この関数は、画像の前処理を行う関数。
