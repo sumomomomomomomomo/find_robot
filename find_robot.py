@@ -181,7 +181,7 @@ if __name__ == "__main__":
     # 動画取り込み
     cap = cv2.VideoCapture(r'C:\\\.mp4')
     if cap.isOpened() is False:
-        print("ビデオファイルを開くとエラーが発生しました")
+        raise IOError("ビデオファイルを開くとエラーが発生しました")
 
     # 閾値
     green_thr = np.array([99, 157, 149, 67, 52, 78])
