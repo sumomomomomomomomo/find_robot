@@ -2,9 +2,52 @@ import math
 import os
 import sys
 import time
+from dataclasses import dataclass
+from typing import Optional
 
 import cv2
 import numpy as np
+
+
+@dataclass
+class HSVThreshold:
+    """HSV画像の処理用データクラス
+
+    Args:
+        hue_max (float): 色相の最大値
+        hue_min (float): 色相の最小値
+        sat_max (float): 彩度の最大値
+        sat_min (float): 彩度の最小値
+        val_max (float): 明度の最大値
+        val_min (float): 明度の最小値
+    """
+    hue_max: float
+    hue_min: float
+    sat_max: float
+    sat_min: float
+    val_max: float
+    val_min: float
+
+
+@dataclass
+class HoughCirclesParameters():
+    """HoughCircles用のパラメータクラス
+
+    Args:
+        dp (float): 解像度
+        min_dist (float): 円同士の最小距離
+        param1 (float): ヒステリス処理上限
+        param2 (float): 低い→誤検出，高い→未検出
+        min_radius (float): 最小半径
+        max_radius (float): 最大半径
+    """
+
+    dp: float
+    min_dist: float
+    param1: float
+    param2: float
+    min_radius: float
+    max_radius: float
 
 
 def pre_img(img: np.ndarray) -> np.ndarray:
@@ -22,19 +65,19 @@ def pre_img(img: np.ndarray) -> np.ndarray:
     return hsv
 
 
-def mask(hsv, thr):
-    """この関数は、画像のマスクを作成する関数。
-    入力は、hsv画像と閾値、出力は二値画像
-    """
-    hMax = thr[0]  # h 最大
-    sMax = thr[1]  # s 最大
-    vMax = thr[2]  # v 最大
-    hMin = thr[3]  # h 最小
-    sMin = thr[4]  # s 最小
-    vMin = thr[5]  # v 最小
+def mask(hsv: np.ndarray, thr: HSVThreshold) -> np.ndarray:
+    """この関数は、hsv画像をマスクする関数
 
-    lower = np.array([hMin, sMin, vMin])
-    upper = np.array([hMax, sMax, vMax])
+    Args:
+        hsv (np.ndarray): hsv画像
+        thr (HSVThreshold): HSV閾値
+
+    Returns:
+        np.ndarray: 2値画像
+    """
+
+    lower = np.array([thr.hue_min, thr.sat_min, thr.val_min])
+    upper = np.array([thr.hue_max, thr.sat_max, thr.val_max])
     mask = cv2.inRange(hsv, lower, upper)  # マスク作成
 
     kernel = np.ones((5, 5), np.uint8)
@@ -45,33 +88,31 @@ def mask(hsv, thr):
     return inv
 
 
-def find_circle(mask, thr):
+def find_circle(
+        mask: np.ndarray,
+        params: HoughCirclesParameters) -> Optional[np.ndarray]:
     """この関数は、円を検出する関数
     入力に、hsv画像と閾値、出力に、円の中心と半径のリスト
     """
-    dp = thr[0]  # 解像度
-    minDist = thr[1]  # 円同士の距離
-    param1 = thr[2]  # ヒステリス処理上限
-    param2 = thr[3]  # 低い→誤検出，高い→未検出
-    minRadius = thr[4]  # 半径下限
-    maxRadius = thr[5]  # 半径上限
+    dp = params.dp  # 解像度
+    min_dist = params.min_dist  # 円同士の距離
+    param1 = params.param1  # ヒステリス処理上限
+    param2 = params.param2  # 低い→誤検出，高い→未検出
+    min_radius = params.min_radius  # 半径下限
+    max_radius = params.max_radius  # 半径上限
 
     circles = cv2.HoughCircles(
         mask,
         cv2.HOUGH_GRADIENT,
         dp=dp,
-        minDist=minDist,
+        minDist=min_dist,
         param1=param1,
         param2=param2,
-        minRadius=minRadius,
-        maxRadius=maxRadius)  # 円検出
-    if circles is None:
-        print('no circle')
-        circles = np.array([[[0, 0, 0]]])
-        return circles
-    else:
-        print(circles)
-        return circles
+        minRadius=min_radius,
+        maxRadius=max_radius)  # 円検出
+
+    print(circles)
+    return circles
 
 
 def draw_circle(img, circles):
@@ -183,14 +224,32 @@ if __name__ == "__main__":
     # frame = cv2.imread("input_2.jpg",1)
 
     # 動画取り込み
-    cap = cv2.VideoCapture(r'C:\\\.mp4')
+    cap = cv2.VideoCapture(r'C:\programs\find_robot\test.mp4')
     if cap.isOpened() is False:
         raise IOError("ビデオファイルを開くとエラーが発生しました")
 
     # 閾値
-    green_thr = np.array([99, 157, 149, 67, 52, 78])
-    pink_thr = np.array([179, 130, 230, 160, 50, 160])
-    c_thr = np.array([2, 30, 100, 14, 13, 20])
+    green_thr = HSVThreshold(
+        hue_max=99,
+        hue_min=67,
+        sat_max=157,
+        sat_min=52,
+        val_max=149,
+        val_min=78)
+    pink_thr = HSVThreshold(
+        hue_max=179,
+        hue_min=160,
+        sat_max=130,
+        sat_min=50,
+        val_max=230,
+        val_min=160)
+    hough_circles_params = HoughCirclesParameters(
+        dp=2,
+        min_dist=30,
+        param1=100,
+        param2=14,
+        min_radius=13,
+        max_radius=20)
 
     cv2.namedWindow('f')
 
@@ -209,11 +268,11 @@ if __name__ == "__main__":
         # 前処理
         frame = pre_img(frame)
         # 緑マーカー
-        frame_g = mask(frame, green_thr)
-        circle_g = find_circle(frame_g, c_thr)
+        frame_green = mask(frame, green_thr)
+        circle_green = find_circle(frame_green, hough_circles_params)
         # ピンクマーカー
-        frame_p = mask(frame, pink_thr)
-        circle_p = find_circle(frame_p, c_thr)
+        frame_pink = mask(frame, pink_thr)
+        circle_pink = find_circle(frame_pink, hough_circles_params)
 
         # 描画
         # output3=draw_circle2(output3,circle_g)
@@ -222,9 +281,10 @@ if __name__ == "__main__":
         # qcv2.imshow('all marker',output3)
 
         # ロボットの検出、描画
-        if (circle_p.shape[1] == 2) and (circle_g.shape[1] == 4):
+        # ここまで書いておいて悪いけど、ここはもっと良い書き方を考えたほうが良いと思う
+        if (circle_pink.shape[1] == 2) and (circle_green.shape[1] == 4):
             print("two robo")
-            robo_1, robo_2 = circle_comb(circle_g, circle_p)
+            robo_1, robo_2 = circle_comb(circle_green, circle_pink)
             robo_1 = np.array(robo_1)
             center_1 = np.array(robo_1)
             print(robo_1, center_1)
@@ -235,13 +295,14 @@ if __name__ == "__main__":
             output = draw_circle(output, robo_2)
             output = draw_robo(output, robo_1_c, robo_1[0])
             output = draw_robo(output, robo_2_c, robo_2[0])
-        elif (circle_p.shape[1] == 2) and (circle_g.shape[1] == 3):
+        elif (circle_pink.shape[1] == 2) and (circle_green.shape[1] == 3):
             print("two robo")
             # robo_1,robo_2=circle_comb(circle_g,circle_p)
 
-        elif (circle_p.shape[1] == 1) and (circle_g.shape[1] == 2):
+        elif (circle_pink.shape[1] == 1) and (circle_green.shape[1] == 2):
             print("one robo")
-            robo_1 = [circle_p[0, 0], circle_g[0, 0], circle_g[0, 1]]
+            robo_1 = [circle_pink[0, 0],
+                      circle_green[0, 0], circle_green[0, 1]]
             robo_1_c = find_robo(robo_1)
             center_1_x = robo_1_c[0]
             center_1_y = robo_1_c[1]
