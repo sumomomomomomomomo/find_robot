@@ -180,7 +180,7 @@ if __name__ == "__main__":
 
     # 動画取り込み
     cap = cv2.VideoCapture(r'C:\\\.mp4')
-    if (cap.isOpened() == False):
+    if cap.isOpened() is False:
         print("ビデオファイルを開くとエラーが発生しました")
 
     # 閾値
