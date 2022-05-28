@@ -7,12 +7,16 @@ import cv2
 import numpy as np
 
 
-def pre_img(img):
-    """この関数は、画像の前処理を行う関数。
-    ガウシアンフィルターによる平滑化ののち、
-    hsv画像への変換を行っている。
-    入力は、RGB画像、出力は、hsv画像
+def pre_img(img: np.ndarray) -> np.ndarray:
+    """RGB画像を読み込み、ガウシアンフィルターによる平滑、hsvに変換する関数
+
+    Args:
+        img (np.ndarray): RGB画像
+
+    Returns:
+        np.ndarray: hsv画像
     """
+
     img = cv2.GaussianBlur(img, (5, 5), 0)  # ガウシアンフィルター
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)  # rgb→hsv変換
     return hsv
